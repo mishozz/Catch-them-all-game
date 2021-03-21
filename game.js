@@ -81,9 +81,16 @@ class Bubble {
         this.y = canvas.height;
         this.radius = 10;
         this.speed = Math.random() * 4 + 1;
+        this.distance = 0;
+        this.counted = false
     }
     update() {
         this.y -= this.speed
+        
+         const dx = this.x - ball.x
+         const dy = this.y - ball.y
+         
+         this.distance = Math.sqrt(dx*dx + dy*dy)
     }
     draw() {
         ctx.fillStyle = "blue"
@@ -111,6 +118,11 @@ function spawnBubbles() {
         if (bubbles[i].y < 0) {
         bubbles.splice(i,1)
         }
+        if (bubbles[i].distance < bubbles[i].radius + ball.radius && !bubbles[i].counted) {
+            bubbles[i].counted = true
+            score++;
+            bubbles.splice(i,1)
+        }
     }
 }
 
@@ -119,8 +131,9 @@ const b = new Bubble();
 
 function animate() {
     frames++;
-   //spawnBubbles();
     ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = "black"
+    ctx.fillText(`score ${score}`,10, 50)
     ball.update();
     ball.draw();
     spawnBubbles();
