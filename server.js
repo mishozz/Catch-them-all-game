@@ -1,5 +1,3 @@
-const { nextTick } = require('process');
-
 var express = require('express'),
 http = require('http'),
 app = express(),
@@ -9,7 +7,7 @@ port = 8080,
 game_sockets = {},
 controller_sockets = {};
 
-server.listen(port, "192.168.0.107");
+server.listen(port);
 
 
 // Set up index
