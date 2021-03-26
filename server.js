@@ -78,6 +78,15 @@ io.sockets.on('connection', function (socket) {
                 game_sockets[game_socket_id].socket.emit("controller_state_change", data)
             }
             });
+
+            socket.on('game_state_change', function(data){
+    
+                if(game_sockets[game_socket_id]){
+        
+                    // Notify relevant game socket of controller state change
+                    game_sockets[game_socket_id].socket.emit("game_state_change", data)
+                }
+            });
     
         }else{
     

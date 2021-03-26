@@ -12,6 +12,8 @@ const BALL_START_Y = canvas.height/2;
 const RADIUS = 10;
 const BUBBLE_START_Y = canvas.height;
 const OBSTACLE_START_X = canvas.width
+const RECTANGLE_WIDTH = 40
+const RECTANGLE_HEIGHT = 30
 const Y = "y"
 const X = "x"
 
@@ -19,6 +21,7 @@ let canvasPosition = canvas.getBoundingClientRect();
 
 let score = 0;
 let frames = 0;
+let isGameOver = false
 
 ctx.font = "50px Georgia";
 
@@ -93,15 +96,18 @@ class Bubble extends Ball{
 }
 
 class Obstacle extends Bubble {
-    constructor(x,y) {
+    constructor(x,y,width,height) {
         super(x,y)
+        this.w = width
+        this.h = height
+
     }
     draw(fillColor) {
         ctx.beginPath();
         ctx.moveTo(this.x,this.y);
         ctx.stroke();
         ctx.fillStyle = fillColor;
-        ctx.rect(this.x,this.y, 20, 10);
+        ctx.rect(this.x,this.y, this.w, this.h);
         ctx.fill();
         ctx.closePath();
     }
@@ -114,31 +120,64 @@ function probability(n){
     return Math.random() < n;
 }  
 
+function rectCircleColliding(circle,rect){
+    var distX = Math.abs(circle.x - rect.x-rect.w/2);
+    var distY = Math.abs(circle.y - rect.y-rect.h/2);
+
+    if (distX > (rect.w/2 + circle.radius)) { return false; }
+    if (distY > (rect.h/2 + circle.radius)) { return false; }
+
+    if (distX <= (rect.w/2)) { return true; } 
+    if (distY <= (rect.h/2)) { return true; }
+
+    var dx=distX-rect.w/2;
+    var dy=distY-rect.h/2;
+    return (dx*dx+dy*dy<=(circle.radius*circle.radius));
+}
+
 function spawnBubbles() {
     const BUBBLE_START_X = Math.random() * canvas.width;
-    const OBSTACLE_START_Y = Math.random() * canvas.height;
+    const OBSTACLE_START_Y = Math.random() * canvas.height; 
     if (frames % 50 == 0) {
         bubbles.push(new Bubble(BUBBLE_START_X,BUBBLE_START_Y));
         if (probability((score + 50)/100)){
-            obstacles.push(new Obstacle(OBSTACLE_START_X,OBSTACLE_START_Y))
+            obstacles.push(new Obstacle(OBSTACLE_START_X,OBSTACLE_START_Y,40,30))
         }
     }
     bubbles.forEach(x => {
         x.update(Y);
         x.draw("blue");
     })
+    for (i = 0 ; i < bubbles.length ; i++){
+        if(typeof bubbles[i] !== "undefined"){    
+            if (bubbles[i].distance < bubbles[i].radius + ball.radius && !bubbles[i].counted) {
+                bubbles[i].counted = true
+                score++;
+                bubbles.splice(i,1)
+            }
+            else if (bubbles[i].y < 0) {
+                bubbles.splice(i,1)
+            }
+        }
+    }
     obstacles.forEach(x => {
         x.update(X);
         x.draw("green");
     })
-    for (i = 0 ; i < bubbles.length ; i++){
-        if (bubbles[i].y < 0) {
-        bubbles.splice(i,1)
-        }
-        if (bubbles[i].distance < bubbles[i].radius + ball.radius && !bubbles[i].counted) {
-            bubbles[i].counted = true
-            score++;
-            bubbles.splice(i,1)
+    for (i = 0 ; i < obstacles.length ; i++){
+        if (typeof obstacles[i] !== "undefined") {
+            if (rectCircleColliding(ball,obstacles[i])) {
+                score=0;
+                console.log("game over obstacle")
+                obstacles.splice(i,1)
+                obstacles = []
+                bubbles = []
+                isGameOver = true
+
+            }
+            else if (obstacles[i].x < -40) {
+                obstacles.splice(i,1)
+            }
         }
     }
 }
@@ -146,14 +185,18 @@ function spawnBubbles() {
 const ball = new Ball(BALL_START_X,BALL_START_Y);
 
 function animate() {
-    frames++;
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = "black"
-    ctx.fillText(`score ${score}`,10, 50)
-    ball.update();
-    ball.draw("red");
-    spawnBubbles();
-    requestAnimationFrame(animate);
+    if (isGameOver) {
+       console.log("game over")
+    } else {
+        frames++;
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = "black"
+        ctx.fillText(`score ${score}`,10, 50)
+        ball.update();
+        ball.draw("red");
+        spawnBubbles();
+        requestAnimationFrame(animate);
+    }
 }
 
 
@@ -222,13 +265,22 @@ io.on('connect', function() {
                 score = 0;
 			}
 
-		})
+		});
 
 		// When the server sends a changed controller state update it in the game
 		io.on('controller_state_change', function(state){
 			controller.x = state.x;
             controller.y = state.y
 		});
+
+        io.on("game_state_change", function(newGame){
+            console.log("new game "+ newGame)
+            if (newGame){
+                isGameOver = false
+                console.log("new game starting")
+                animate()
+            }
+        })
 
 	}
     setup_controller_outlook = function() {
@@ -272,17 +324,30 @@ io.on('connect', function() {
                 setup_controller_outlook()
                 alert("Connected!");
 
-                emit_updates = function(){
+                emit_controller_updates = function(){
 					io.emit('controller_state_change', controller);
 				}
                 handleOrientation = function(e) {
                     // Device Orientation API
                     controller.x = e.gamma ; // range [-90,90], left-right
                     controller.y = e.beta ;  // range [-180,180], top-bottom
-                    emit_updates();
+                    emit_controller_updates();
                 }
 
                 window.addEventListener("deviceorientation", handleOrientation, true);
+
+                
+                var newGame = false
+                console.log("game lost ")
+                emit_new_game_update = function() {
+                    io.emit("game_state_change", newGame)
+                }
+                handleGameState = function(e) {
+                    console.log("game lost clicked ")
+                    newGame = true
+                    emit_new_game_update()
+                }
+                window.addEventListener("click", handleGameState)             
             }else{
                 // Failed connection
                 alert("Not connected!");
