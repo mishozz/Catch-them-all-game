@@ -5,6 +5,11 @@ const controller = {
 
 const canvas = document.getElementById("canvas1");
 const ctx = canvas.getContext("2d");
+div_element = document.createElement('div')
+let newGameWrapper;
+window.onload = function() {
+    newGameWrapper = document.getElementById("new-game-wrapper")
+};
 canvas.width = 800
 canvas.height = 500
 const BALL_START_X = canvas.width/2;
@@ -167,13 +172,10 @@ function spawnBubbles() {
     for (i = 0 ; i < obstacles.length ; i++){
         if (typeof obstacles[i] !== "undefined") {
             if (rectCircleColliding(ball,obstacles[i])) {
-                score=0;
-                console.log("game over obstacle")
                 obstacles.splice(i,1)
                 obstacles = []
                 bubbles = []
                 isGameOver = true
-
             }
             else if (obstacles[i].x < -40) {
                 obstacles.splice(i,1)
@@ -184,9 +186,29 @@ function spawnBubbles() {
 
 const ball = new Ball(BALL_START_X,BALL_START_Y);
 
+function resetController() {
+    controller.x = 0;
+    controller.y = 0;
+}
+
+function resetBall() {
+    ball.x = BALL_START_X;
+    ball.y = BALL_START_Y;
+}
+
 function animate() {
     if (isGameOver) {
-       console.log("game over")
+       canvas.style.display = "none";
+       newGameWrapper.style.display = "flex";
+       div_element.style.height = '15%';
+       div_element.style.fontSize = 'x-large';
+       div_element.innerHTML = `Your score is ${score}`;
+       div_element.style.textAlign = 'center';
+       paragraph_element = document.createElement('div');
+       newGameWrapper.prepend(div_element)
+       score=0;
+       resetController();
+       resetBall();
     } else {
         frames++;
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -274,10 +296,10 @@ io.on('connect', function() {
 		});
 
         io.on("game_state_change", function(newGame){
-            console.log("new game "+ newGame)
             if (newGame){
                 isGameOver = false
-                console.log("new game starting")
+                newGameWrapper.style.display = "none"
+                canvas.style.display = "flex"
                 animate()
             }
         })
@@ -338,13 +360,12 @@ io.on('connect', function() {
 
                 
                 var newGame = false
-                console.log("game lost ")
                 emit_new_game_update = function() {
                     io.emit("game_state_change", newGame)
                 }
                 handleGameState = function(e) {
-                    console.log("game lost clicked ")
                     newGame = true
+                 //   newGameWrapper.removeChild(div_element)
                     emit_new_game_update()
                 }
                 window.addEventListener("click", handleGameState)             
